@@ -1,0 +1,34 @@
+# $@ = target file
+# $< = first dependency
+# $^ = all dependencies
+#qemu-system-i386 -fda format=raw,file=$<  
+# First rule is the one executed when no parameters are fed to the Makefile
+all: run
+
+# Notice how dependencies are built as needed
+kernel.bin: kernel_entry.o kernel.o
+	gcc -m32 -c $@ -o -Ttext 0x1000 $^ -std=gnu99 -ffreestanding -O2 -Wall -Wextra
+
+kernel_entry.o: kernel_entry.asm
+	nasm $< -f elf -o $@
+
+kernel.o: kernel.c
+	i386-elf-gcc -ffreestanding -c $< -o $@
+
+# Rule to disassemble the kernel - may be useful to debug
+kernel.dis: kernel.bin
+	ndisasm -b 32 $< > $@
+
+bootsect.bin: bootsect.asm
+	nasm $< -f bin -o $@
+
+os-image.bin: bootsect.bin kernel.bin
+	cat $^ > $@
+
+run: os-image.bin
+	
+	qemu-system-x86_64 -drive format=raw,file=os-image.bin
+
+
+clean:
+	rm *.bin *.o *.dis
